@@ -35,14 +35,15 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture
-def firefox_driver(capabilities, driver_path, firefox_profile, firefox_path):
+def firefox_driver(capabilities, driver_path, firefox_profile,
+                   firefox_path, firefox_timeout):
     """Return a factory function creating Firefox WebDriver instances.
     """
     @factory
     def _get_instance():
         """Return Firefox WebDriver instance based on given options.
         """
-        kwargs = {}
+        kwargs = {'timeout': firefox_timeout}
         if capabilities:
             kwargs['capabilities'] = deepcopy(capabilities)
         if driver_path:
@@ -53,6 +54,11 @@ def firefox_driver(capabilities, driver_path, firefox_profile, firefox_path):
         kwargs['firefox_profile'] = firefox_profile.get_instance()
         return Firefox(**kwargs)
     return _get_instance
+
+
+@pytest.fixture(scope='session')
+def firefox_timeout():
+    return 60
 
 
 @pytest.fixture(scope='session')
