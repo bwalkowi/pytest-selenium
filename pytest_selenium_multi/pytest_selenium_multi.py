@@ -116,6 +116,7 @@ def config_driver():
 
 def select_browser(selenium, browser_id):
     browser = selenium[browser_id]
+    browser.execute_script('console.debug = console.warn')
     selenium['request'].node._driver = browser
     return browser
 
