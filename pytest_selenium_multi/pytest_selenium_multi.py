@@ -4,16 +4,26 @@
 
 import copy
 from datetime import datetime
+import re
 import os
 import sys
+import time
 
 from selenium.webdriver.support.event_firing_webdriver import \
     EventFiringWebDriver
 
 from drivers.utils import factory
 
-
 import pytest
+
+
+RE_LOG = re.compile(r'<log>.*?</log>')
+RE_LOG_MSG = re.compile(r'<log>'
+                        r'<class>(?P<class>.*?)</class>'
+                        r'(<cat>(?P<cat>.*?)</cat>)?'
+                        r'<msg>(?P<msg>.*?)</msg>.*?'
+                        r'</log>')
+
 
 PY3 = sys.version_info[0] == 3
 
@@ -227,9 +237,39 @@ def _gather_logs(item, report, driver, summary, extra):
                 name, e))
             return
         pytest_html = item.config.pluginmanager.getplugin('html')
+
+        # driver.get_log(name) is bugged for firefox, so instead logs are written
+        # to file using consoleExport and firebug, so we read it, parse to json,
+        # format and append to end of logs
+        formatted_logs = ''
+        if driver.logs_enabled:
+            console_logs = []
+            with open(os.path.join(driver.root_dir,
+                                   driver.instance_name,
+                                   'logs', 'firefox.log')) as f:
+                logs = ''.join(f.readlines())
+
+            for console_log in RE_LOG.finditer(logs):
+                log_info = RE_LOG_MSG.match(console_log.group(0))
+                if log_info:
+                    level = log_info.group('class')
+                    cat = log_info.group('cat')
+                    if cat and (cat.upper() in level.upper()):
+                        level = cat
+                    msg = log_info.group('msg')
+
+                    formatted_log = {'timestamp': time.time() * 1000,
+                                     'message': msg,
+                                     'source': 'console-api',
+                                     'level': level.upper()}
+                    console_logs.append(formatted_log)
+            formatted_logs = '\n\n\n\n{0}\n\nCONSOLE LOGS:\n\n{0}\n\n\n\n{1}' \
+                             ''.format('='*180, format_log(console_logs))
+
         if pytest_html is not None:
             extra.append(pytest_html.extras.text(
-                format_log(log), '%s Log' % name.title()))
+                '{}{}'.format(format_log(log), formatted_logs),
+                '%s Log' % name.title()))
 
 
 def format_log(log):

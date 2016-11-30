@@ -32,6 +32,10 @@ def pytest_addoption(parser):
                      dest='firefox_extensions',
                      metavar='path',
                      help='path to a firefox extension.')
+    group._addoption('--enable-logs',
+                     help="catch console logs",
+                     dest='enable_logs',
+                     action='store_true')
 
 
 @pytest.fixture
@@ -58,7 +62,7 @@ def firefox_driver(capabilities, driver_path, firefox_profile,
 
 @pytest.fixture(scope='session')
 def firefox_timeout():
-    return 60
+    return 120
 
 
 @pytest.fixture(scope='session')
