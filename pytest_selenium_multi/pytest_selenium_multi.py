@@ -126,7 +126,6 @@ def config_driver():
 
 def select_browser(selenium, browser_id):
     browser = selenium[browser_id]
-    browser.execute_script('console.debug = console.warn')
     selenium['request'].node._driver = browser
     return browser
 
@@ -176,6 +175,13 @@ def pytest_runtest_makereport(item, call):
                 _gather_logs(item, report, driver, summary, extra)
             item.config.hook.pytest_selenium_capture_debug(
                 item=item, report=report, extra=extra)
+        if not failure and item.config.option.xvfb_recording:
+            movie_name = '{name}.mp4'.format(name=item.name)
+            logdir = os.path.dirname(item.config.option.htmlpath)
+            movie_path = os.path.join(logdir, 'movies', movie_name)
+            if os.path.isfile(movie_path):
+                os.remove(movie_path)
+
         item.config.hook.pytest_selenium_runtest_makereport(
             item=item, report=report, summary=summary, extra=extra)
     if summary:
@@ -308,6 +314,11 @@ def pytest_addoption(parser):
                      choices=SUPPORTED_DRIVERS,
                      help='webdriver implementation.',
                      metavar='str')
+    group._addoption('--xvfb-recording',
+                     help='record tests using ffmpeg '
+                          'and save results to <logdir>/movies/',
+                     dest='xvfb_recording',
+                     action='store_true')
     group._addoption('--driver-path',
                      metavar='path',
                      help='path to the driver executable.')
