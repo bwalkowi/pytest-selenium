@@ -151,6 +151,9 @@ def pytest_report_header(config, startdir):
         return 'driver: {0}'.format(driver)
 
 
+movies = set()
+
+
 @pytest.mark.hookwrapper
 def pytest_runtest_makereport(item, call):
     outcome = yield
@@ -177,15 +180,15 @@ def pytest_runtest_makereport(item, call):
             item.config.hook.pytest_selenium_capture_debug(
                 item=item, report=report, extra=extra)
 
-        import pdb
-        pdb.set_trace()
-
-        if xvfb_rec and not failure:
+        if xvfb_rec:
             movie_name = '{name}.mp4'.format(name=item.name)
-            logdir = os.path.dirname(item.config.option.htmlpath)
-            movie_path = os.path.join(logdir, 'movies', movie_name)
-            if os.path.isfile(movie_path):
-                os.remove(movie_path)
+            if failure:
+                movies.add(movie_name)
+            elif movie_name not in movies:
+                logdir = os.path.dirname(item.config.option.htmlpath)
+                movie_path = os.path.join(logdir, 'movies', movie_name)
+                if os.path.isfile(movie_path):
+                    os.remove(movie_path)
 
         item.config.hook.pytest_selenium_runtest_makereport(
             item=item, report=report, summary=summary, extra=extra)
