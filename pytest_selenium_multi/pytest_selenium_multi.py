@@ -176,6 +176,10 @@ def pytest_runtest_makereport(item, call):
                 _gather_logs(item, report, driver, summary, extra)
             item.config.hook.pytest_selenium_capture_debug(
                 item=item, report=report, extra=extra)
+
+        import pdb
+        pdb.set_trace()
+
         if xvfb_rec and not failure:
             movie_name = '{name}.mp4'.format(name=item.name)
             logdir = os.path.dirname(item.config.option.htmlpath)
