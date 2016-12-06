@@ -159,6 +159,7 @@ def pytest_runtest_makereport(item, call):
     extra = getattr(report, 'extra', [])
     driver = getattr(item, '_driver', None)
     xfail = hasattr(report, 'wasxfail')
+    xvfb_rec = item.config.option.xvfb_recording
     failure = (report.skipped and xfail) or (report.failed and not xfail)
     when = item.config.getini('selenium_capture_debug').lower()
     capture_debug = when == 'always' or (when == 'failure' and failure)
@@ -175,7 +176,7 @@ def pytest_runtest_makereport(item, call):
                 _gather_logs(item, report, driver, summary, extra)
             item.config.hook.pytest_selenium_capture_debug(
                 item=item, report=report, extra=extra)
-        if not failure and item.config.option.xvfb_recording:
+        if xvfb_rec and not failure:
             movie_name = '{name}.mp4'.format(name=item.name)
             logdir = os.path.dirname(item.config.option.htmlpath)
             movie_path = os.path.join(logdir, 'movies', movie_name)
