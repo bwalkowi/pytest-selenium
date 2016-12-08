@@ -151,9 +151,6 @@ def pytest_report_header(config, startdir):
         return 'driver: {0}'.format(driver)
 
 
-movies = set()
-
-
 @pytest.mark.hookwrapper
 def pytest_runtest_makereport(item, call):
     outcome = yield
@@ -179,16 +176,12 @@ def pytest_runtest_makereport(item, call):
                 _gather_logs(item, report, driver, summary, extra)
             item.config.hook.pytest_selenium_capture_debug(
                 item=item, report=report, extra=extra)
-
-        if xvfb_rec:
+        if (not xvfb_rec) or ((not failure) and (xvfb_rec == 'failed')):
             movie_name = '{name}.mp4'.format(name=item.name)
-            if failure:
-                movies.add(movie_name)
-            elif movie_name not in movies:
-                logdir = os.path.dirname(item.config.option.htmlpath)
-                movie_path = os.path.join(logdir, 'movies', movie_name)
-                if os.path.isfile(movie_path):
-                    os.remove(movie_path)
+            logdir = os.path.dirname(item.config.option.htmlpath)
+            movie_path = os.path.join(logdir, 'movies', movie_name)
+            if os.path.isfile(movie_path):
+                os.remove(movie_path)
 
         item.config.hook.pytest_selenium_runtest_makereport(
             item=item, report=report, summary=summary, extra=extra)
@@ -323,10 +316,11 @@ def pytest_addoption(parser):
                      help='webdriver implementation.',
                      metavar='str')
     group._addoption('--xvfb-recording',
-                     help='record tests using ffmpeg '
-                          'and save results to <logdir>/movies/',
+                     help='record tests (possible options: all | none | failed) '
+                          'using ffmpeg and save results to <logdir>/movies/',
                      dest='xvfb_recording',
-                     action='store_true')
+                     choices=['all', 'none', 'failed'],
+                     default='none')
     group._addoption('--driver-path',
                      metavar='path',
                      help='path to the driver executable.')
