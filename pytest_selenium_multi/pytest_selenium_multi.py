@@ -182,7 +182,7 @@ def pytest_runtest_makereport(item, call):
 
         if xvfb_rec != 'none':
             movie_name = '{name}.mp4'.format(name=item.name)
-            if xvfb_rec == 'failed' and (movie_name not in _movies) and not failure:
+            if (xvfb_rec == 'failed') and (movie_name not in _movies) and not failure:
                 logdir = os.path.dirname(item.config.option.htmlpath)
                 movie_path = os.path.join(logdir, 'movies', movie_name)
                 if os.path.isfile(movie_path):
