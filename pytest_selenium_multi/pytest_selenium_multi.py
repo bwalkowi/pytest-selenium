@@ -256,7 +256,7 @@ def _gather_logs(item, report, driver, summary, extra):
         # to file using consoleExport and firebug, so we read it, parse to json,
         # format and append to end of logs
         formatted_logs = ''
-        if driver.logs_enabled:
+        if driver.ff_logs_enabled:
             console_logs = []
             with open(os.path.join(driver.root_dir,
                                    driver.instance_name,
