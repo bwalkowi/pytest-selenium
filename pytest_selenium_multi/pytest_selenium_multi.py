@@ -34,6 +34,7 @@ SUPPORTED_DRIVERS = [
     'IE',
     'PhantomJS',
     'Remote',
+    'Safari',
     'SauceLabs',
     'TestingBot']
 
