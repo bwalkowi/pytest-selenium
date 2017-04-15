@@ -84,25 +84,27 @@ def driver_path(request):
 @pytest.yield_fixture
 def driver(request, driver_class, driver_kwargs):
     """Returns a WebDriver instance based on options and capabilities"""
-    driver = driver_class(**driver_kwargs)
-
+    cls = driver_class
     event_listener = request.config.getoption('event_listener')
     if event_listener is not None:
         # Import the specified event listener and wrap the driver instance
         mod_name, class_name = event_listener.rsplit('.', 1)
         mod = __import__(mod_name, fromlist=[class_name])
         event_listener = getattr(mod, class_name)
-        if not isinstance(driver, EventFiringWebDriver):
-            driver = EventFiringWebDriver(driver, event_listener())
+        if not issubclass(driver_class, EventFiringWebDriver):
+            cls = lambda **kwargs: EventFiringWebDriver(driver_class(**kwargs),
+                                                        event_listener())
 
-    request.node._driver = driver
-    yield driver
-    driver.quit()
+    return lambda kwargs=driver_kwargs: cls(**kwargs)
 
 
 @pytest.yield_fixture
-def selenium(driver):
-    yield driver
+def selenium(request):
+    drivers = {}
+    request.node._drivers = drivers
+    yield drivers
+    for driver in drivers:
+        driver.quit()
 
 
 @pytest.hookimpl(trylast=True)
@@ -135,22 +137,24 @@ def pytest_runtest_makereport(item, call):
     report = outcome.get_result()
     summary = []
     extra = getattr(report, 'extra', [])
-    driver = getattr(item, '_driver', None)
+    drivers = getattr(item, '_drivers', None)
     xfail = hasattr(report, 'wasxfail')
     failure = (report.skipped and xfail) or (report.failed and not xfail)
     when = item.config.getini('selenium_capture_debug').lower()
     capture_debug = when == 'always' or (when == 'failure' and failure)
-    if driver is not None:
+    if drivers is not None:
         if capture_debug:
-            exclude = item.config.getini('selenium_exclude_debug').lower()
-            if 'url' not in exclude:
-                _gather_url(item, report, driver, summary, extra)
-            if 'screenshot' not in exclude:
-                _gather_screenshot(item, report, driver, summary, extra)
-            if 'html' not in exclude:
-                _gather_html(item, report, driver, summary, extra)
-            if 'logs' not in exclude:
-                _gather_logs(item, report, driver, summary, extra)
+            for driver_id, driver in drivers.items():
+                exclude = item.config.getini('selenium_exclude_debug').lower()
+                if 'url' not in exclude:
+                    _gather_url(item, report, driver_id, driver, summary, extra)
+                if 'screenshot' not in exclude:
+                    _gather_screenshot(item, report, driver_id, driver,
+                                       summary, extra)
+                if 'html' not in exclude:
+                    _gather_html(item, report, driver_id, driver, summary, extra)
+                if 'logs' not in exclude:
+                    _gather_logs(item, report, driver_id, driver, summary, extra)
             item.config.hook.pytest_selenium_capture_debug(
                 item=item, report=report, extra=extra)
         item.config.hook.pytest_selenium_runtest_makereport(
@@ -160,7 +164,7 @@ def pytest_runtest_makereport(item, call):
     report.extra = extra
 
 
-def _gather_url(item, report, driver, summary, extra):
+def _gather_url(item, report, driver_id, driver, summary, extra):
     try:
         url = driver.current_url
     except Exception as e:
@@ -169,11 +173,11 @@ def _gather_url(item, report, driver, summary, extra):
     pytest_html = item.config.pluginmanager.getplugin('html')
     if pytest_html is not None:
         # add url to the html report
-        extra.append(pytest_html.extras.url(url))
+        extra.append(pytest_html.extras.url(url, 'URL[{}]'.format(driver_id)))
     summary.append('URL: {0}'.format(url))
 
 
-def _gather_screenshot(item, report, driver, summary, extra):
+def _gather_screenshot(item, report, driver_id, driver, summary, extra):
     try:
         screenshot = driver.get_screenshot_as_base64()
     except Exception as e:
@@ -182,10 +186,11 @@ def _gather_screenshot(item, report, driver, summary, extra):
     pytest_html = item.config.pluginmanager.getplugin('html')
     if pytest_html is not None:
         # add screenshot to the html report
-        extra.append(pytest_html.extras.image(screenshot, 'Screenshot'))
+        extra.append(pytest_html.extras.image(screenshot,
+                                              'Screenshot[{}]'.format(driver_id)))
 
 
-def _gather_html(item, report, driver, summary, extra):
+def _gather_html(item, report, driver_id, driver, summary, extra):
     try:
         html = driver.page_source
     except Exception as e:
@@ -194,10 +199,10 @@ def _gather_html(item, report, driver, summary, extra):
     pytest_html = item.config.pluginmanager.getplugin('html')
     if pytest_html is not None:
         # add page source to the html report
-        extra.append(pytest_html.extras.text(html, 'HTML'))
+        extra.append(pytest_html.extras.text(html, 'HTML[{}]'.format(driver_id)))
 
 
-def _gather_logs(item, report, driver, summary, extra):
+def _gather_logs(item, report, driver_id, driver, summary, extra):
     try:
         types = driver.log_types
     except Exception as e:
@@ -214,7 +219,7 @@ def _gather_logs(item, report, driver, summary, extra):
         pytest_html = item.config.pluginmanager.getplugin('html')
         if pytest_html is not None:
             extra.append(pytest_html.extras.text(
-                format_log(log), '%s Log' % name.title()))
+                format_log(log), '%s[%s] Log' % name.title(), driver_id))
 
 
 def format_log(log):
