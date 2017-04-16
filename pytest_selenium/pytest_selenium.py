@@ -103,7 +103,7 @@ def selenium(request):
     drivers = {}
     request.node._drivers = drivers
     yield drivers
-    for driver in drivers:
+    for driver in drivers.values():
         driver.quit()
 
 
@@ -219,7 +219,7 @@ def _gather_logs(item, report, driver_id, driver, summary, extra):
         pytest_html = item.config.pluginmanager.getplugin('html')
         if pytest_html is not None:
             extra.append(pytest_html.extras.text(
-                format_log(log), '%s[%s] Log' % name.title(), driver_id))
+                format_log(log), '%s[%s] Log' % (name.title(), driver_id)))
 
 
 def format_log(log):
